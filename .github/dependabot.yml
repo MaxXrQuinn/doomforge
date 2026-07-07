@@ -5,10 +5,22 @@
 
 version: 2
 updates:
+  # NPM updates for your package.json
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+
+    # Prevent Dependabot from crashing on Electron
     ignore:
       - dependency-name: "electron"
       - dependency-name: "electron-builder"
+
+    # Allow updates for everything else
+    open-pull-requests-limit: 10
+
+  # GitHub Actions updates (recommended)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
