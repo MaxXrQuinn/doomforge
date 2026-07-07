@@ -1,0 +1,24 @@
+{
+  "name": "doomforge",
+  "productName": "DOOMFORGE",
+  "version": "1.0.0",
+  "description": "Retro FPS construction kit - Doom-style game engine and level editor",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable",
+    "dist-installer": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.doomforge.app",
+    "win": {
+      "target": ["portable"],
+      "artifactName": "DOOMFORGE.exe"
+    },
+    "files": ["main.js", "doomforge.html"]
+  }
+}
