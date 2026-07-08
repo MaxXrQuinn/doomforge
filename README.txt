@@ -32,7 +32,7 @@ double-click DOOMFORGE.bat. It opens the game in an app window
 without copying anything or making shortcuts. Good for a USB stick.
 
 
-OPTION 3 - BUILD A REAL .EXE (advanced)
+OPTION 3 - BUILD THE .EXE
 ---------------------------------------
 The electron\ folder builds a standalone DOOMFORGE.exe. Requires
 Node.js (free, nodejs.org):
