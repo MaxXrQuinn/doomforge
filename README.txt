@@ -32,7 +32,7 @@ Keep DOOMFORGE.bat and doomforge.html together in a folder and
 without copying anything or making shortcuts. ("Safe to use with a USB stick / thumb drive").
 
 
-OPTION 3 - BUILD A .EXE (advanced)
+OPTION 3 - BUILD A .EXE
 ---------------------------------------
 The electron\ folder builds a standalone DOOMFORGE.exe. Requires
 Node.js which is free from "nodejs.org":
