@@ -6,7 +6,7 @@ There are 3 ways to run DOOMFORGE.
 
 OPTION 1 - INSTALL IT (recommended)
 -----------------------------------
-Double-click  Install-DOOMFORGE.bat
+"Double-click"  "Install-DOOMFORGE.bat"
 
 This installs DOOMFORGE as a program:
   - copies it into your account (%LOCALAPPDATA%\DOOMFORGE)
