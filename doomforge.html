@@ -75,6 +75,29 @@
   input[type=color]{width:100%; height:26px; background:none; border:1px solid var(--line); padding:0; cursor:pointer;}
   input[type=range]{width:100%;}
   .btnstack{display:flex; flex-direction:column; gap:6px;}
+  /* level manager */
+  .levellist{display:flex; flex-direction:column; gap:4px; margin-bottom:8px; max-height:240px; overflow-y:auto;}
+  .lvlrow{display:flex; align-items:center; gap:6px; padding:6px 8px; border:1px solid var(--line);
+    background:var(--panel2); cursor:pointer; font-size:12px; user-select:none;}
+  .lvlrow:hover{border-color:var(--dim);}
+  .lvlrow.on{border-color:var(--amber); background:#3b2f1e; color:var(--amber);}
+  .lvlrow .num{color:#665c4e; font-size:10px; min-width:16px;}
+  .lvlrow.on .num{color:var(--amber);}
+  .lvlbtns{display:grid; grid-template-columns:1fr 1fr; gap:5px;}
+  .lvlbtns button{padding:5px 4px; font-size:11px;}
+  .lvlbtns #btnUpLvl, .lvlbtns #btnDownLvl{font-size:12px;}
+  select{width:100%; background:#0e0c0a; border:1px solid var(--line); color:var(--ink); font-family:inherit; padding:5px; margin-top:2px;}
+  .soundlist{display:flex; flex-direction:column; gap:3px; max-height:340px; overflow-y:auto;}
+  .sndrow{display:flex; align-items:center; gap:5px; font-size:11px; padding:4px 5px; border:1px solid var(--line); background:var(--panel2);}
+  .sndrow .lbl{flex:1; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .sndrow .cat{color:#665c4e; font-size:9px; text-transform:uppercase;}
+  .sndrow button{padding:2px 6px; font-size:10px; border-bottom-width:2px;}
+  .sndrow .custom{color:var(--ok); font-size:14px; cursor:pointer;}
+  .sndrow .none{color:#4a4038; font-size:10px;}
+  /* player mode: hide all editor chrome */
+  body.player-mode header nav, body.player-mode #editmain, body.player-mode #helpmain, body.player-mode #playbar{display:none !important;}
+  body.player-mode #playmain{display:flex !important;}
+  body.player-mode .tag{opacity:.5;}
   /* balance grid */
   .balgrid{display:grid; grid-template-columns:1fr 52px; gap:4px 6px; align-items:center;}
   .balgrid .bl{font-size:11px; color:var(--dim); margin:0;}
@@ -103,10 +126,11 @@
 <body>
 <header>
   <div class="logo">DOOM<span>FORGE</span></div>
-  <div class="tag">RETRO FPS CONSTRUCTION KIT · v2.0</div>
+  <div class="tag">RETRO FPS CONSTRUCTION KIT · v4.0</div>
   <nav>
     <button id="tabEdit" class="tab-on">Editor</button>
-    <button id="tabPlay">Play</button>
+    <button id="tabPlay">Play Level</button>
+    <button id="tabGame">Play Game</button>
     <button id="tabHelp">Help</button>
   </nav>
 </header>
@@ -119,14 +143,10 @@
       <div class="tools" id="toolbox"></div>
     </div>
     <div class="panel">
-      <h3>Level</h3>
+      <h3>This Level</h3>
       <div class="btnstack">
-        <button id="btnPlaytest" class="primary">▶ Playtest</button>
-        <button id="btnSample">Sample Level</button>
-        <button id="btnNew">New (Clear)</button>
-        <button id="btnSave">Download .JSON</button>
-        <button id="btnLoad">Load .JSON</button>
-        <input type="file" id="fileIn" accept=".json" style="display:none">
+        <button id="btnPlaytest" class="primary">▶ Play This Level</button>
+        <button id="btnClear">Clear Level</button>
       </div>
     </div>
   </div>
@@ -149,6 +169,13 @@
       <input type="color" id="fogCol" value="#0a0808">
       <label>Fog distance: <span id="fogVal">14</span></label>
       <input type="range" id="fogDist" min="5" max="30" value="14">
+      <label>Background music (loops)</label>
+      <div id="musicRow" style="display:flex;align-items:center;gap:6px;">
+        <span id="musicName" style="flex:1;font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">none</span>
+        <button id="btnMusic" style="padding:3px 7px;font-size:10px;">Load</button>
+        <button id="btnMusicClear" style="padding:3px 6px;font-size:10px;">✕</button>
+      </div>
+      <input type="file" id="musicFile" accept="audio/*" style="display:none">
     </div>
     <div class="panel" style="width:196px;">
       <h3>Stats</h3>
@@ -160,6 +187,72 @@
     <div class="panel" style="width:210px;">
       <h3>Balance <span style="color:#665c4e;float:right;cursor:pointer;" id="balReset" title="Reset to defaults">↺ reset</span></h3>
       <div class="balgrid" id="balance"></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel" style="width:210px;">
+      <h3>Levels</h3>
+      <div id="levelList" class="levellist"></div>
+      <div style="font-size:10px;color:var(--dim);margin:4px 0 6px;">double-click a level to rename</div>
+      <div class="lvlbtns">
+        <button id="btnAddLvl">+ Add</button>
+        <button id="btnDupLvl">Duplicate</button>
+        <button id="btnUpLvl">▲</button>
+        <button id="btnDownLvl">▼</button>
+        <button id="btnDelLvl">Delete</button>
+      </div>
+    </div>
+    <div class="panel" style="width:210px;">
+      <h3>Game / Main Menu</h3>
+      <label>Game title</label>
+      <input type="text" id="gameTitle" value="DOOMFORGE">
+      <label>Subtitle</label>
+      <input type="text" id="gameSub" value="A custom megawad">
+      <label>Menu background</label>
+      <input type="color" id="menuBg" value="#140f0c">
+      <label>Menu accent</label>
+      <input type="color" id="menuFg" value="#ff5a2a">
+      <div class="btnstack" style="margin-top:10px;">
+        <button id="btnPlayGame" class="primary">▶ Play Full Game</button>
+        <button id="btnBuild" class="primary">⚙ Build Game (.html)</button>
+        <button id="btnSaveProj">Save Project (.json)</button>
+        <button id="btnLoadProj">Load Project (.json)</button>
+        <button id="btnSample">Load Sample Game</button>
+        <input type="file" id="fileIn" accept=".json" style="display:none">
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel" style="width:210px;">
+      <h3>Endgame Menu</h3>
+      <label>Victory title</label>
+      <input type="text" id="endTitle" value="YOU WON">
+      <label>Victory message</label>
+      <input type="text" id="endText" value="You conquered every level.">
+      <label>Background</label>
+      <input type="color" id="endBg" value="#0c0f14">
+      <label>Accent</label>
+      <input type="color" id="endFg" value="#7fd4ff">
+    </div>
+    <div class="panel" style="width:210px;">
+      <h3>Text Style</h3>
+      <label>Font</label>
+      <select id="fontSel"></select>
+      <label>Text color</label>
+      <input type="color" id="textColor" value="#d9cfc0">
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel" style="width:222px;">
+      <h3>Custom Sounds (MP3)</h3>
+      <div style="font-size:10px;color:var(--dim);margin-bottom:6px;">
+        Upload a clip to replace any sound. Saved into the project &amp; build.
+      </div>
+      <div id="soundList" class="soundlist"></div>
+      <input type="file" id="sndFile" accept="audio/*" style="display:none">
     </div>
   </div>
 </main>
@@ -190,21 +283,34 @@
     <p>You start with the pistol. Place <b>Shotgun</b> and <b>Chaingun</b> pickups to arm the player — switch with <b>1/2/3</b>. Each gun feeds a different ammo pool: the pistol uses <b style="color:#d4b12a">bullets</b>, the shotgun uses <b style="color:#e07a2a">shells</b>, and the chaingun burns <b style="color:#c9a83a">heavy ammo</b>. Place the matching pickups. The chaingun is fully automatic — hold to fire.</p>
     <h2>THE BALANCE PANEL</h2>
     <p>Every number is yours: monster health, damage and speed, turret fire rate, spike/barrel damage, medkit heal amount, ammo pickup sizes, per-weapon damage, and the player's starting health and ammo. Balance settings save into the level .JSON, so a tuned "nightmare mode" map stays a nightmare on anyone's machine.</p>
+    <h2>MAKING A WHOLE GAME</h2>
+    <p>DOOMFORGE builds complete games, not just single maps. The <b>Levels</b> panel holds an ordered list — add, duplicate, reorder (▲▼) or delete levels, and click any one to edit it. The <b>Game</b> panel is your menu editor: set the title, subtitle, and menu colors that players see on the start screen. Hit <b>▶ Play Full Game</b> to test the whole thing: a title menu, level select, level-to-level progression with intermissions, and a victory screen when the last map is cleared.</p>
+    <h2>SHARING &amp; BUILDING</h2>
+    <p><b>Save Project</b> writes your entire game (all levels + menu) to one .json you can reload later or hand to a friend. <b>⚙ Build Game</b> exports a standalone <b>.html</b> — a finished, editor-free game that boots straight to your menu. Double-click it in any browser (or drop it in the Windows kit) and it just plays. No DOOMFORGE, no tools, no dependencies.</p>
+    <h2>MENUS, SETTINGS &amp; STYLE</h2>
+    <p>The <b>Game / Main Menu</b> and <b>Endgame Menu</b> panels let you author both the start screen and the victory screen — titles, messages and colors. Built games include a live <b>Settings</b> screen (reachable from the main menu) where players adjust master, gun, monster and trap volume, mouse sensitivity, and render resolution. The <b>Text Style</b> panel changes the font and text color used across every menu and the HUD. Double-click any level in the Levels list to rename it.</p>
+    <h2>CUSTOM SOUNDS</h2>
+    <p>The <b>Custom Sounds</b> panel replaces any built-in effect — footsteps, each gun, each monster, barrels, spikes, pickups and more — with your own uploaded MP3 (or any audio file). Each level also has its own <b>Background music</b> slot in Map Settings that loops while you play it, with a Music volume in the Settings screen. Uploaded clips are stored inside the project, so they travel with Save Project and are baked into the built .html. Click the green dot to revert a sound slot to the synth.</p>
     <h2>ENGINE FACTS</h2>
     <p>320×200 internal framebuffer, DDA raycasting, z-buffered sprites, procedural textures and sprites, synthesized audio. One HTML file, zero dependencies.</p>
   </div>
 </main>
 
+<script id="embed">window.EMBEDDED_GAME=null;</script>
 <script>
 "use strict";
+/* Snapshot of the page exactly as loaded (before the editor mutates the DOM).
+   Build uses this to emit a standalone, editor-free copy of the game. */
+const PRISTINE_HTML = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
 /* =====================================================================
-   DOOMFORGE v2 — single-file retro FPS construction kit
+   DOOMFORGE v3 — single-file retro FPS construction kit
    ===================================================================== */
 
 const MW = 32, MH = 32;
 const TX = 64;
-const RW = 320, RH = 200;
-const HALF = RH >> 1;
+let RW = 320, RH = 200;
+let HALF = RH >> 1;
+const RES = { low:[256,160], med:[320,200], high:[480,300], ultra:[640,400] };
 
 /* ---------- tunable balance ---------- */
 const DEFSTATS = {
@@ -233,14 +339,43 @@ const STAT_FIELDS = [
   ["pistolDmg","Pistol dmg"], ["shotgunDmg","Shotgun/pellet"], ["chaingunDmg","Chaingun dmg"]
 ];
 
-/* ---------- level state (editor) ---------- */
-const level = {
-  name: "E1M1 — The Forge",
-  grid: new Uint8Array(MW * MH),
-  ents: [],
-  ceil: "#2b2b33", floor: "#4a3b2a", fog: "#0a0808", fogDist: 14,
-  stats: {...DEFSTATS}
+/* ---------- project = a whole game (title + ordered levels) ---------- */
+function makeLevel(name){
+  return {
+    name: name || "New Level",
+    grid: new Uint8Array(MW * MH),
+    ents: [],
+    ceil: "#2b2b33", floor: "#4a3b2a", fog: "#0a0808", fogDist: 14,
+    stats: {...DEFSTATS},
+    music: null                       // { b64, name } looping background track
+  };
+}
+const project = {
+  title: "DOOMFORGE",
+  subtitle: "A custom megawad",
+  menuBg: "#140f0c",
+  menuFg: "#ff5a2a",
+  // endgame (victory) screen
+  endTitle: "YOU WON",
+  endText: "You conquered every level.",
+  endBg: "#0c0f14",
+  endFg: "#7fd4ff",
+  // style
+  font: "Courier New",
+  textColor: "#d9cfc0",
+  // default player settings baked into the game
+  settings: { master:1, gun:1, monster:1, trap:1, music:.7, sens:1, res:"med" },
+  // uploaded sfx:  slot -> { b64, name }
+  sounds: {},
+  levels: [ makeLevel("E1M1 — The Forge") ],
+  cur: 0
 };
+// `level` always points at the level currently being edited
+let level = project.levels[0];
+
+/* current font string helper (menus + HUD use the project font) */
+function FT(px, bold){ return (bold?"bold ":"")+px+"px "+(project.font||"Courier New")+", monospace"; }
+const FONT_CHOICES = ["Courier New","Consolas","Lucida Console","Georgia","Impact","Trebuchet MS","Verdana","monospace"];
 
 /* =====================================================================
    PROCEDURAL TEXTURES
@@ -533,50 +668,143 @@ const SPR = {
 /* =====================================================================
    SOUND
    ===================================================================== */
-let AC=null;
-function sfx(f0,f1,dur,type="square",vol=.16){
+/* ---- live player settings (defaults live in the project) ---- */
+const SETT = { master:1, gun:1, monster:1, trap:1, music:.7, sens:1, res:"med" };
+
+/* ---- audio graph: sources -> category gain -> master -> speakers ---- */
+let AC=null, gMaster=null, gCat={};
+function audio(){
+  if(AC){ if(AC.state==="suspended"){ try{AC.resume();}catch(e){} } return AC; }
+  AC = new (window.AudioContext||window.webkitAudioContext)();
+  gMaster = AC.createGain(); gMaster.connect(AC.destination);
+  ["gun","monster","trap","ui","music"].forEach(k=>{ gCat[k]=AC.createGain(); gCat[k].connect(gMaster); });
+  applyVolumes();
+  return AC;
+}
+function applyVolumes(){
+  if(!AC) return;
+  gMaster.gain.value = SETT.master;
+  gCat.gun.gain.value=SETT.gun; gCat.monster.gain.value=SETT.monster;
+  gCat.trap.gain.value=SETT.trap; gCat.ui.gain.value=1;
+  if(gCat.music) gCat.music.gain.value=SETT.music;
+}
+function busFor(cat){ return (gCat[cat]||gMaster||null); }
+
+function sfx(f0,f1,dur,type="square",vol=.16,cat="ui"){
   try{
-    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    audio();
     const o=AC.createOscillator(), g=AC.createGain(), t=AC.currentTime;
     o.type=type; o.frequency.setValueAtTime(f0,t);
     o.frequency.exponentialRampToValueAtTime(Math.max(f1,1),t+dur);
     g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.001,t+dur);
-    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+dur);
+    o.connect(g); g.connect(busFor(cat)); o.start(t); o.stop(t+dur);
   }catch(e){}
 }
-/* filtered white-noise burst — the meat of gun blasts and explosions */
-function noise(dur, vol, cutoff=4000){
+function noise(dur, vol, cutoff=4000, cat="ui"){
   try{
-    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    audio();
     const t=AC.currentTime, n=Math.max(1,Math.floor(AC.sampleRate*dur));
-    const buf=AC.createBuffer(1,n,AC.sampleRate), d=buf.getChannelData(0);
+    const nb=AC.createBuffer(1,n,AC.sampleRate), d=nb.getChannelData(0);
     for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
-    const src=AC.createBufferSource(); src.buffer=buf;
+    const src=AC.createBufferSource(); src.buffer=nb;
     const f=AC.createBiquadFilter(); f.type="lowpass"; f.frequency.value=cutoff;
     const g=AC.createGain(); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.001,t+dur);
-    src.connect(f); f.connect(g); g.connect(AC.destination); src.start(t);
+    src.connect(f); f.connect(g); g.connect(busFor(cat)); src.start(t);
   }catch(e){}
 }
+
+/* ---- custom uploaded sounds (base64 in the project, decoded on demand) ---- */
+const decodedSND = {};                         // slot -> AudioBuffer
+function b64ToBytes(b64){
+  const bin=atob(b64); const len=bin.length; const bytes=new Uint8Array(len);
+  for(let i=0;i<len;i++) bytes[i]=bin.charCodeAt(i);
+  return bytes.buffer;
+}
+function decodeSlot(slot, then){
+  try{
+    audio();
+    const rec = project.sounds && project.sounds[slot];
+    if(!rec){ return; }
+    if(decodedSND[slot]){ then && then(decodedSND[slot]); return; }
+    AC.decodeAudioData(b64ToBytes(rec.b64), buf=>{ decodedSND[slot]=buf; then && then(buf); }, ()=>{});
+  }catch(e){}
+}
+function playCustom(slot, cat){
+  decodeSlot(slot, buf=>{
+    try{ const s=AC.createBufferSource(); s.buffer=buf; s.connect(busFor(cat)); s.start(); }catch(e){}
+  });
+}
+/* route a sound event: custom clip if uploaded for this slot, else the synth */
+function play(slot, cat, synthFn){
+  if(project.sounds && project.sounds[slot]) playCustom(slot, cat);
+  else if(synthFn) synthFn();
+}
+
+/* ---- per-level looping background music ---- */
+const musicBuf = new WeakMap();   // level object -> decoded AudioBuffer
+let musicSrc = null;              // currently playing source
+let musicToken = 0;               // guards against races when levels change fast
+function stopMusic(){
+  musicToken++;
+  if(musicSrc){ try{ musicSrc.stop(); }catch(e){} try{ musicSrc.disconnect(); }catch(e){} musicSrc=null; }
+}
+function startMusic(lv){
+  stopMusic();
+  if(!lv || !lv.music || !lv.music.b64) return;
+  const token = musicToken;
+  try{
+    audio();
+    const playBuf = buf=>{
+      if(token!==musicToken) return;          // a newer level took over
+      try{
+        const s=AC.createBufferSource(); s.buffer=buf; s.loop=true;
+        s.connect(busFor("music")); s.start();
+        musicSrc=s;
+      }catch(e){}
+    };
+    if(musicBuf.has(lv)){ playBuf(musicBuf.get(lv)); }
+    else AC.decodeAudioData(b64ToBytes(lv.music.b64), buf=>{ musicBuf.set(lv,buf); playBuf(buf); }, ()=>{});
+  }catch(e){}
+}
+
 const S = {
-  shoot:  ()=>{ noise(.06,.10,3500); sfx(240,60,.12,"square",.16); },
-  // shotgun: big low boom + a snappy noise blast
-  shotgun:()=>{ noise(.30,.42,2000); sfx(110,26,.30,"sawtooth",.20); sfx(380,70,.09,"square",.10); },
-  // chaingun: short mechanical "brrt" tick — punchy noise + metallic ping
-  chain:  ()=>{ noise(.05,.20,3600); sfx(340,110,.06,"square",.11); },
-  click:  ()=>sfx(120,80,.05,"square",.08),
-  dry:    ()=>sfx(90,60,.03,"square",.04),
-  hurt:   ()=>sfx(160,40,.25,"sawtooth",.2),
-  pickup: ()=>{sfx(440,660,.08,"square",.12); setTimeout(()=>sfx(660,880,.08,"square",.12),70);},
-  wgot:   ()=>{[330,440,550,660].forEach((f,i)=>setTimeout(()=>sfx(f,f,.1,"square",.13),i*70));},
-  die:    ()=>sfx(220,30,.5,"sawtooth",.2),
-  fball:  ()=>sfx(90,300,.2,"sine",.14),
-  bolt:   ()=>sfx(600,200,.1,"square",.1),
-  hit:    ()=>sfx(300,120,.08,"square",.12),
-  boom:   ()=>{ noise(.5,.4,1200); sfx(70,18,.6,"sawtooth",.26); sfx(200,40,.25,"square",.14); },
-  spike:  ()=>{ noise(.08,.14,3000); sfx(500,200,.09,"sawtooth",.12); },
-  win:    ()=>{[440,554,659,880].forEach((f,i)=>setTimeout(()=>sfx(f,f,.18,"square",.14),i*130));},
-  dead:   ()=>sfx(180,25,1.2,"sawtooth",.22)
+  shoot:  ()=>play("pistol","gun",   ()=>{ noise(.06,.10,3500,"gun"); sfx(240,60,.12,"square",.16,"gun"); }),
+  shotgun:()=>play("shotgun","gun",  ()=>{ noise(.30,.42,2000,"gun"); sfx(110,26,.30,"sawtooth",.20,"gun"); sfx(380,70,.09,"square",.10,"gun"); }),
+  chain:  ()=>play("chaingun","gun", ()=>{ noise(.05,.20,3600,"gun"); sfx(340,110,.06,"square",.11,"gun"); }),
+  click:  ()=>sfx(120,80,.05,"square",.08,"ui"),
+  dry:    ()=>sfx(90,60,.03,"square",.04,"gun"),
+  step:   ()=>play("walk","ui",      ()=>noise(.05,.03,600,"ui")),
+  hurt:   ()=>play("hurt","ui",      ()=>sfx(160,40,.25,"sawtooth",.2,"ui")),
+  pickup: ()=>play("pickup","ui",    ()=>{sfx(440,660,.08,"square",.12,"ui"); setTimeout(()=>sfx(660,880,.08,"square",.12,"ui"),70);}),
+  wgot:   ()=>{[330,440,550,660].forEach((f,i)=>setTimeout(()=>sfx(f,f,.1,"square",.13,"ui"),i*70));},
+  claw:   ()=>play("grunt","monster",()=>{ noise(.08,.12,1600,"monster"); sfx(180,60,.12,"sawtooth",.12,"monster"); }),
+  die:    ()=>play("die","monster",  ()=>sfx(220,30,.5,"sawtooth",.2,"monster")),
+  fball:  ()=>play("imp","monster",  ()=>sfx(90,300,.2,"sine",.14,"monster")),
+  bolt:   ()=>play("turret","monster",()=>sfx(600,200,.1,"square",.1,"monster")),
+  hit:    ()=>sfx(300,120,.08,"square",.12,"gun"),
+  boom:   ()=>play("barrel","trap",  ()=>{ noise(.5,.4,1200,"trap"); sfx(70,18,.6,"sawtooth",.26,"trap"); sfx(200,40,.25,"square",.14,"trap"); }),
+  spike:  ()=>play("spike","trap",   ()=>{ noise(.08,.14,3000,"trap"); sfx(500,200,.09,"sawtooth",.12,"trap"); }),
+  win:    ()=>play("win","ui",       ()=>{[440,554,659,880].forEach((f,i)=>setTimeout(()=>sfx(f,f,.18,"square",.14,"ui"),i*130));}),
+  dead:   ()=>play("playerdie","ui", ()=>sfx(180,25,1.2,"sawtooth",.22,"ui"))
 };
+
+/* uploadable sound slots (shown in the editor) */
+const SND_SLOTS = [
+  {id:"walk",     label:"Footsteps",      cat:"ui"},
+  {id:"pistol",   label:"Pistol fire",    cat:"gun"},
+  {id:"shotgun",  label:"Shotgun fire",   cat:"gun"},
+  {id:"chaingun", label:"Chaingun fire",  cat:"gun"},
+  {id:"grunt",    label:"Grunt attack",   cat:"monster"},
+  {id:"imp",      label:"Imp fireball",   cat:"monster"},
+  {id:"turret",   label:"Turret shot",    cat:"monster"},
+  {id:"die",      label:"Monster death",  cat:"monster"},
+  {id:"barrel",   label:"Barrel blast",   cat:"trap"},
+  {id:"spike",    label:"Spike trap",     cat:"trap"},
+  {id:"pickup",   label:"Item pickup",    cat:"ui"},
+  {id:"hurt",     label:"Player hurt",    cat:"ui"},
+  {id:"playerdie",label:"Player death",   cat:"ui"},
+  {id:"win",      label:"Victory jingle", cat:"ui"}
+];
 
 /* =====================================================================
    EDITOR
@@ -695,11 +923,26 @@ ed.addEventListener("contextmenu", ev=>ev.preventDefault());
 
 /* settings binding */
 const $ = id=>document.getElementById(id);
-$("mapName").oninput = e=>level.name=e.target.value;
+$("mapName").oninput = e=>{ level.name=e.target.value; if(typeof renderLevelList==="function") renderLevelList(); };
 $("ceilCol").oninput = e=>level.ceil=e.target.value;
 $("floorCol").oninput= e=>level.floor=e.target.value;
 $("fogCol").oninput  = e=>level.fog=e.target.value;
 $("fogDist").oninput = e=>{ level.fogDist=+e.target.value; $("fogVal").textContent=e.target.value; };
+
+/* per-level background music upload */
+$("btnMusic").onclick = ()=>$("musicFile").click();
+$("btnMusicClear").onclick = ()=>{ if(level.music){ musicBuf.delete(level); level.music=null; updateMusicName(); if(game.curLevel===level) stopMusic(); } };
+$("musicFile").onchange = ev=>{
+  const f=ev.target.files[0]; if(!f){ return; }
+  if(f.size > 8*1024*1024 && !confirm("That track is "+(f.size/1048576).toFixed(1)+" MB. Music embeds into the saved game and can make it large. Continue?")){ ev.target.value=""; return; }
+  const r=new FileReader();
+  r.onload=()=>{
+    level.music={ b64:r.result.split(",")[1], name:f.name };
+    musicBuf.delete(level);
+    updateMusicName();
+  };
+  r.readAsDataURL(f); ev.target.value="";
+};
 
 /* balance panel */
 function buildBalance(){
@@ -723,111 +966,299 @@ function refreshBalance(){
 $("balReset").onclick=()=>{ level.stats={...DEFSTATS}; refreshBalance(); };
 buildBalance();
 
-/* level buttons */
-$("btnNew").onclick = ()=>{
-  if(!confirm("Clear the whole map?")) return;
-  level.grid.fill(0); level.ents=[]; drawEditor();
+/* =====================================================================
+   LEVEL + PROJECT MANAGEMENT
+   ===================================================================== */
+function syncEditorFromLevel(){
+  $("mapName").value=level.name;
+  $("ceilCol").value=level.ceil; $("floorCol").value=level.floor; $("fogCol").value=level.fog;
+  $("fogDist").value=level.fogDist; $("fogVal").textContent=level.fogDist;
+  updateMusicName();
+  refreshBalance(); drawEditor(); renderLevelList();
+}
+function updateMusicName(){
+  const el=$("musicName"); if(!el) return;
+  el.textContent = (level.music && level.music.name) ? level.music.name : "none";
+  el.style.color = (level.music) ? "var(--ok)" : "var(--dim)";
+}
+function renderLevelList(){
+  const box=$("levelList"); if(!box) return; box.innerHTML="";
+  project.levels.forEach((lv,i)=>{
+    const d=document.createElement("div");
+    d.className="lvlrow"+(i===project.cur?" on":"");
+    d.textContent=(i+1)+". "+(lv.name||"Untitled");
+    d.title="click to edit · double-click to rename";
+    d.onclick=()=>selectLevel(i);
+    d.ondblclick=()=>{
+      const nm=prompt("Rename level "+(i+1)+":", lv.name||"");
+      if(nm!==null){ lv.name=nm.trim()||("Level "+(i+1)); if(i===project.cur) $("mapName").value=lv.name; renderLevelList(); }
+    };
+    box.appendChild(d);
+  });
+}
+function selectLevel(i){
+  if(i<0||i>=project.levels.length) return;
+  project.cur=i; level=project.levels[i];
+  syncEditorFromLevel();
+}
+$("btnAddLvl").onclick=()=>{
+  project.levels.push(makeLevel("Level "+(project.levels.length+1)));
+  selectLevel(project.levels.length-1);
 };
-$("btnSave").onclick = ()=>{
-  const blob = new Blob([JSON.stringify({
-    name:level.name, ceil:level.ceil, floor:level.floor, fog:level.fog, fogDist:level.fogDist,
-    stats:level.stats, grid:[...level.grid], ents:level.ents
-  }, null, 1)], {type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=(level.name.replace(/[^\w\- ]/g,"").trim()||"level")+".json";
-  a.click(); URL.revokeObjectURL(a.href);
+$("btnDupLvl").onclick=()=>{
+  const c=level, copy=makeLevel(c.name+" (copy)");
+  copy.grid.set(c.grid); copy.ents=c.ents.map(e=>({...e}));
+  copy.ceil=c.ceil; copy.floor=c.floor; copy.fog=c.fog; copy.fogDist=c.fogDist; copy.stats={...c.stats};
+  project.levels.splice(project.cur+1,0,copy);
+  selectLevel(project.cur+1);
 };
-$("btnLoad").onclick = ()=>$("fileIn").click();
-$("fileIn").onchange = ev=>{
-  const f=ev.target.files[0]; if(!f) return;
+$("btnDelLvl").onclick=()=>{
+  if(project.levels.length<=1){ alert("A game needs at least one level."); return; }
+  if(!confirm("Delete this level?")) return;
+  project.levels.splice(project.cur,1);
+  selectLevel(Math.min(project.cur, project.levels.length-1));
+};
+$("btnUpLvl").onclick=()=>{
+  const i=project.cur; if(i<=0) return;
+  [project.levels[i-1],project.levels[i]]=[project.levels[i],project.levels[i-1]];
+  project.cur--; renderLevelList();
+};
+$("btnDownLvl").onclick=()=>{
+  const i=project.cur; if(i>=project.levels.length-1) return;
+  [project.levels[i+1],project.levels[i]]=[project.levels[i],project.levels[i+1]];
+  project.cur++; renderLevelList();
+};
+
+/* menu editor bindings */
+$("gameTitle").oninput=e=>project.title=e.target.value;
+$("gameSub").oninput  =e=>project.subtitle=e.target.value;
+$("menuBg").oninput   =e=>project.menuBg=e.target.value;
+$("menuFg").oninput   =e=>project.menuFg=e.target.value;
+
+/* endgame menu editor bindings */
+$("endTitle").oninput =e=>project.endTitle=e.target.value;
+$("endText").oninput  =e=>project.endText=e.target.value;
+$("endBg").oninput    =e=>project.endBg=e.target.value;
+$("endFg").oninput    =e=>project.endFg=e.target.value;
+
+/* text style bindings */
+(function(){
+  const sel=$("fontSel");
+  FONT_CHOICES.forEach(f=>{ const o=document.createElement("option"); o.value=f; o.textContent=f; sel.appendChild(o); });
+  sel.value=project.font;
+  sel.onchange=e=>project.font=e.target.value;
+  $("textColor").oninput=e=>project.textColor=e.target.value;
+})();
+
+/* ---- custom sound upload panel ---- */
+let sndTargetSlot=null;
+function renderSoundList(){
+  const box=$("soundList"); if(!box) return; box.innerHTML="";
+  SND_SLOTS.forEach(s=>{
+    const has = project.sounds && project.sounds[s.id];
+    const row=document.createElement("div"); row.className="sndrow";
+    const lbl=document.createElement("div"); lbl.className="lbl";
+    lbl.textContent=s.label;
+    const cat=document.createElement("span"); cat.className="cat"; cat.textContent=s.cat;
+    const status=document.createElement("span");
+    if(has){ status.className="custom"; status.textContent="●"; status.title=(project.sounds[s.id].name||"custom")+" — click to clear";
+      status.onclick=()=>{ delete project.sounds[s.id]; delete decodedSND[s.id]; renderSoundList(); }; }
+    else { status.className="none"; status.textContent="synth"; }
+    const btn=document.createElement("button");
+    btn.textContent=has?"Replace":"Load";
+    btn.onclick=()=>{ sndTargetSlot=s.id; $("sndFile").click(); };
+    row.appendChild(lbl); row.appendChild(cat); row.appendChild(status); row.appendChild(btn);
+    box.appendChild(row);
+  });
+}
+$("sndFile").onchange=ev=>{
+  const f=ev.target.files[0]; if(!f||!sndTargetSlot){ ev.target.value=""; return; }
+  if(f.size > 4*1024*1024 && !confirm("That file is "+(f.size/1048576).toFixed(1)+" MB. Large clips bloat your saved game. Continue?")){ ev.target.value=""; return; }
   const r=new FileReader();
   r.onload=()=>{
-    try{
-      const j=JSON.parse(r.result);
-      if(!Array.isArray(j.grid)||j.grid.length!==MW*MH) throw 0;
-      level.grid.set(j.grid);
-      level.ents=(j.ents||[]).filter(e=>ENT_DEF[e.t]);
-      level.name=j.name||"Imported"; level.ceil=j.ceil||"#2b2b33";
-      level.floor=j.floor||"#4a3b2a"; level.fog=j.fog||"#0a0808"; level.fogDist=j.fogDist||14;
-      level.stats={...DEFSTATS, ...(j.stats||{})};
-      $("mapName").value=level.name; $("ceilCol").value=level.ceil;
-      $("floorCol").value=level.floor; $("fogCol").value=level.fog;
-      $("fogDist").value=level.fogDist; $("fogVal").textContent=level.fogDist;
-      refreshBalance();
-      drawEditor();
-    }catch(e){ alert("That file doesn't look like a DOOMFORGE level."); }
+    const b64=r.result.split(",")[1];          // strip data: prefix
+    project.sounds[sndTargetSlot]={ b64, name:f.name };
+    delete decodedSND[sndTargetSlot];
+    decodeSlot(sndTargetSlot);                  // pre-decode so first play is instant
+    renderSoundList();
+    sndTargetSlot=null;
   };
-  r.readAsText(f); ev.target.value="";
+  r.readAsDataURL(f); ev.target.value="";
 };
 
-/* sample level — five rooms joined by carved corridors (connectivity verified) */
-$("btnSample").onclick = ()=>{
-  level.grid.fill(0); level.ents=[];
-  const G=(x,y,v)=>{ if(x>=0&&y>=0&&x<MW&&y<MH) level.grid[y*MW+x]=v; };
-  const room=(x0,y0,x1,y1,t)=>{
-    for(let x=x0;x<=x1;x++){ G(x,y0,t); G(x,y1,t); }
-    for(let y=y0;y<=y1;y++){ G(x0,y,t); G(x1,y,t); }
-  };
-  // carve a 2-wide L-corridor between two interior points, clearing any wall in the way
-  const carve=(x0,y0,x1,y1)=>{
-    let x=x0,y=y0;
-    while(x!==x1){ G(x,y,0); G(x,y+1,0); x+=Math.sign(x1-x); }
-    while(y!==y1){ G(x,y,0); G(x+1,y,0); y+=Math.sign(y1-y); }
-    G(x1,y1,0); G(x1,y1+1,0);
-  };
-  const E=(t,x,y)=>level.ents.push({t,x,y});
+/* clear current level */
+$("btnClear").onclick=()=>{
+  if(!confirm("Clear this level's map?")) return;
+  level.grid.fill(0); level.ents=[]; drawEditor(); updateStats();
+};
 
-  room(1,1,11,12,2);      // start  (stone)
-  room(14,1,28,9,3);      // tech   (top)
-  room(15,12,30,21,1);    // arena  (brick)
-  room(1,16,12,30,6);     // crypt  (hellrock)
-  room(15,24,30,30,5);    // vault  (hazard)
-
-  carve(9,6, 16,4);       // start -> tech
-  carve(22,7, 22,15);     // tech  -> arena
-  carve(6,11, 6,19);      // start -> crypt
-  carve(9,20, 18,17);     // crypt -> arena
-  carve(22,19, 22,27);    // arena -> vault
-
-  G(19,15,4); G(25,15,4); G(19,18,4); G(25,18,4);   // arena pillars
-  G(4,21,6); G(5,21,6); G(9,26,6);                  // crypt rubble
-
-  E("player",3,3);
-  E("medkit",9,2); E("ammo",3,11);
-  // tech hall — opening fights + shotgun
+/* =====================================================================
+   SAMPLE GAME  (two connectivity-verified levels)
+   ===================================================================== */
+function fillSampleForge(lv){
+  lv.grid.fill(0); lv.ents=[];
+  const G=(x,y,v)=>{ if(x>=0&&y>=0&&x<MW&&y<MH) lv.grid[y*MW+x]=v; };
+  const room=(x0,y0,x1,y1,t)=>{ for(let x=x0;x<=x1;x++){G(x,y0,t);G(x,y1,t);} for(let y=y0;y<=y1;y++){G(x0,y,t);G(x1,y,t);} };
+  const carve=(x0,y0,x1,y1)=>{ let x=x0,y=y0; while(x!==x1){G(x,y,0);G(x,y+1,0);x+=Math.sign(x1-x);} while(y!==y1){G(x,y,0);G(x+1,y,0);y+=Math.sign(y1-y);} G(x1,y1,0);G(x1,y1+1,0); };
+  const E=(t,x,y)=>lv.ents.push({t,x,y});
+  room(1,1,11,12,2); room(14,1,28,9,3); room(15,12,30,21,1); room(1,16,12,30,6); room(15,24,30,30,5);
+  carve(9,6,16,4); carve(22,7,22,15); carve(6,11,6,19); carve(9,20,18,17); carve(22,19,22,27);
+  G(19,15,4);G(25,15,4);G(19,18,4);G(25,18,4); G(4,21,6);G(5,21,6);G(9,26,6);
+  E("player",3,3); E("medkit",9,2); E("ammo",3,11);
   E("grunt",18,4); E("grunt",24,6); E("wshotgun",26,3); E("shells",20,7); E("barrel",17,3);
-  // brick arena — turret overwatch + barrel cluster
   E("imp",18,16); E("grunt",28,14); E("grunt",24,19); E("imp",27,17); E("turret",22,14);
-  E("barrel",27,15); E("barrel",28,15); E("barrel",27,16);
-  E("medkit",29,20); E("shells",17,19);
-  // crypt — spike traps
+  E("barrel",27,15); E("barrel",28,15); E("barrel",27,16); E("medkit",29,20); E("shells",17,19);
   E("spike",4,19); E("spike",5,19); E("spike",9,28); E("spike",3,28);
   E("imp",4,24); E("grunt",10,29); E("medkit",2,29); E("ammo",10,18);
-  // hazard vault — chaingun finale
   E("wchaingun",18,27); E("heavy",19,27); E("turret",29,29);
   E("imp",26,28); E("barrel",24,26); E("medkit",16,29); E("shells",28,27); E("heavy",27,25);
   E("exit",28,25);
-  level.name="E1M1 — The Forge"; $("mapName").value=level.name;
-  drawEditor();
+  lv.name="E1M1 — The Forge";
+}
+function fillSampleArena(lv){
+  lv.grid.fill(0); lv.ents=[];
+  const G=(x,y,v)=>{ if(x>=0&&y>=0&&x<MW&&y<MH) lv.grid[y*MW+x]=v; };
+  const room=(x0,y0,x1,y1,t)=>{ for(let x=x0;x<=x1;x++){G(x,y0,t);G(x,y1,t);} for(let y=y0;y<=y1;y++){G(x0,y,t);G(x1,y,t);} };
+  const E=(t,x,y)=>lv.ents.push({t,x,y});
+  room(2,2,29,29,1);
+  G(9,9,5);G(22,9,5);G(9,22,5);G(22,22,5);
+  G(15,15,4);G(16,15,4);G(15,16,4);G(16,16,4);
+  E("player",16,27);
+  E("wshotgun",4,4); E("shells",5,4); E("wchaingun",27,4); E("heavy",27,5);
+  E("turret",4,27); E("turret",27,27);
+  E("imp",11,11);E("imp",20,11);E("imp",11,20);E("imp",20,20);
+  E("grunt",12,6);E("grunt",20,6);E("grunt",6,16);E("grunt",26,16);E("grunt",12,25);E("grunt",20,25);
+  E("barrel",15,9);E("barrel",16,9);E("barrel",9,15);E("barrel",22,15);
+  E("medkit",4,25);E("medkit",27,25);E("heavy",16,4);E("shells",16,25);
+  E("exit",16,3);
+  lv.name="E1M2 — The Arena";
+}
+function loadSampleGame(){
+  project.title="THE FORGE"; project.subtitle="A two-map descent into hell";
+  project.menuBg="#140f0c"; project.menuFg="#ff5a2a";
+  project.endTitle="HELL CLEARED"; project.endText="The forge falls silent. You survived.";
+  project.endBg="#0c0f14"; project.endFg="#ff5a2a";
+  project.font="Courier New"; project.textColor="#d9cfc0";
+  project.settings={master:1,gun:1,monster:1,trap:1,music:.7,sens:1,res:"med"};
+  project.sounds={};
+  for(const k in decodedSND) delete decodedSND[k];
+  Object.assign(SETT, project.settings); applyVolumes();
+  const l1=makeLevel(""), l2=makeLevel(""); fillSampleForge(l1); fillSampleArena(l2);
+  project.levels=[l1,l2]; project.cur=0; level=l1;
+  syncGameInputs();
+  syncEditorFromLevel();
+}
+$("btnSample").onclick=loadSampleGame;
+
+/* =====================================================================
+   SAVE / LOAD PROJECT (whole game)
+   ===================================================================== */
+function serializeProject(){
+  return {
+    doomforge:"project", version:4,
+    title:project.title, subtitle:project.subtitle, menuBg:project.menuBg, menuFg:project.menuFg,
+    endTitle:project.endTitle, endText:project.endText, endBg:project.endBg, endFg:project.endFg,
+    font:project.font, textColor:project.textColor,
+    settings:{...project.settings},
+    sounds:project.sounds,
+    levels: project.levels.map(lv=>({
+      name:lv.name, ceil:lv.ceil, floor:lv.floor, fog:lv.fog, fogDist:lv.fogDist,
+      stats:lv.stats, grid:[...lv.grid], ents:lv.ents, music:lv.music||null
+    }))
+  };
+}
+function loadProjectData(j){
+  let lvls;
+  if(Array.isArray(j.levels)){
+    lvls=j.levels;
+    project.title=j.title||"DOOMFORGE"; project.subtitle=j.subtitle||"";
+    project.menuBg=j.menuBg||"#140f0c"; project.menuFg=j.menuFg||"#ff5a2a";
+    project.endTitle=j.endTitle||"YOU WON"; project.endText=j.endText||"You conquered every level.";
+    project.endBg=j.endBg||"#0c0f14"; project.endFg=j.endFg||"#7fd4ff";
+    project.font=j.font||"Courier New"; project.textColor=j.textColor||"#d9cfc0";
+    project.settings={master:1,gun:1,monster:1,trap:1,music:.7,sens:1,res:"med", ...(j.settings||{})};
+    project.sounds=j.sounds||{};
+  } else if(Array.isArray(j.grid)){                 // legacy single level
+    lvls=[j]; project.title="DOOMFORGE"; project.subtitle="Imported level";
+    project.menuBg="#140f0c"; project.menuFg="#ff5a2a";
+    project.endTitle="YOU WON"; project.endText="You conquered every level.";
+    project.endBg="#0c0f14"; project.endFg="#7fd4ff";
+    project.font="Courier New"; project.textColor="#d9cfc0";
+    project.settings={master:1,gun:1,monster:1,trap:1,music:.7,sens:1,res:"med"}; project.sounds={};
+  } else throw 0;
+  project.levels = lvls.map(o=>{
+    if(!Array.isArray(o.grid)||o.grid.length!==MW*MH) throw 0;
+    const lv=makeLevel(o.name||"Level");
+    lv.grid.set(o.grid); lv.ents=(o.ents||[]).filter(e=>ENT_DEF[e.t]);
+    lv.ceil=o.ceil||"#2b2b33"; lv.floor=o.floor||"#4a3b2a"; lv.fog=o.fog||"#0a0808"; lv.fogDist=o.fogDist||14;
+    lv.stats={...DEFSTATS,...(o.stats||{})};
+    lv.music = (o.music&&o.music.b64)? o.music : null;
+    return lv;
+  });
+  if(!project.levels.length) project.levels=[makeLevel("Level 1")];
+  project.cur=0; level=project.levels[0];
+  // adopt saved settings + reset decoded-sound cache
+  Object.assign(SETT, project.settings); applyVolumes();
+  for(const k in decodedSND) delete decodedSND[k];
+  syncGameInputs();
+  syncEditorFromLevel();
+}
+/* push project-level (non-per-level) values into the editor inputs */
+function syncGameInputs(){
+  $("gameTitle").value=project.title; $("gameSub").value=project.subtitle;
+  $("menuBg").value=project.menuBg; $("menuFg").value=project.menuFg;
+  if($("endTitle")){ $("endTitle").value=project.endTitle; $("endText").value=project.endText;
+    $("endBg").value=project.endBg; $("endFg").value=project.endFg; }
+  if($("fontSel")){ $("fontSel").value=project.font; $("textColor").value=project.textColor; }
+  if(typeof renderSoundList==="function") renderSoundList();
+}
+$("btnSaveProj").onclick=()=>{
+  const blob=new Blob([JSON.stringify(serializeProject(),null,1)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=(project.title.replace(/[^\w\- ]/g,"").trim()||"game")+".json";
+  a.click(); URL.revokeObjectURL(a.href);
+};
+$("btnLoadProj").onclick=()=>$("fileIn").click();
+$("fileIn").onchange=ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ loadProjectData(JSON.parse(r.result)); }catch(e){ alert("That file isn't a DOOMFORGE game or level."); } };
+  r.readAsText(f); ev.target.value="";
+};
+
+/* =====================================================================
+   BUILD — emit a standalone, editor-free playable .html
+   ===================================================================== */
+$("btnBuild").onclick=()=>{
+  const payload=JSON.stringify(serializeProject()).replace(/</g,"\\u003c");
+  const html=PRISTINE_HTML.replace("window.EMBEDDED_GAME=null;","window.EMBEDDED_GAME="+payload+";");
+  const blob=new Blob([html],{type:"text/html"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=(project.title.replace(/[^\w\- ]/g,"").trim()||"game")+".html";
+  a.click(); URL.revokeObjectURL(a.href);
 };
 
 /* =====================================================================
    TABS
    ===================================================================== */
 const mains={edit:$("editmain"), play:$("playmain"), help:$("helpmain")};
-const tabs ={edit:$("tabEdit"),  play:$("tabPlay"),  help:$("tabHelp")};
+const tabs ={edit:$("tabEdit"),  play:$("tabPlay"), game:$("tabGame"), help:$("tabHelp")};
 function showTab(t){
-  for(const k in mains){ mains[k].classList.toggle("on",k===t); tabs[k].classList.toggle("tab-on",k===t); }
-  if(t!=="play" && game.on) stopGame();
-  if(t==="play" && !game.on) tryStart();
+  const target = (t==="game") ? "play" : t;   // Play Game reuses the play viewport
+  for(const k in mains){ mains[k].classList.toggle("on", k===target); }
+  for(const k in tabs){ tabs[k].classList.toggle("tab-on", k===t); }
+  if(target!=="play" && game.on) stopGame();
+  if(t==="play" && (!game.on || game.mode!=="test")) tryStart();   // playtest current level
+  if(t==="game") startCampaign();                                  // full game, from menu
 }
 tabs.edit.onclick=()=>showTab("edit");
 tabs.play.onclick=()=>showTab("play");
+tabs.game.onclick=()=>showTab("game");
 tabs.help.onclick=()=>showTab("help");
 $("btnPlaytest").onclick=()=>showTab("play");
+$("btnPlayGame").onclick=()=>showTab("game");
 $("btnBack").onclick=()=>showTab("edit");
-$("btnRestart").onclick=()=>tryStart();
+$("btnRestart").onclick=()=>restartCurrent();
 
 /* =====================================================================
    ENGINE
@@ -839,7 +1270,7 @@ gg.imageSmoothingEnabled=false;
 const buf = document.createElement("canvas"); buf.width=RW; buf.height=RH;
 const bg = buf.getContext("2d");
 let frame = bg.createImageData(RW,RH);
-const zbuf = new Float32Array(RW);
+let zbuf = new Float32Array(RW);
 
 function hex2rgb(h){ return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; }
 
@@ -869,31 +1300,31 @@ function solid(x,y){
   return game.grid[cy*MW+cx];
 }
 
-function tryStart(){
-  const p = level.ents.find(e=>e.t==="player");
-  if(!p){
-    game.on=false;
-    gg.fillStyle="#000"; gg.fillRect(0,0,640,400);
-    gg.fillStyle="#c23b22"; gg.font="bold 22px Courier New"; gg.textAlign="center";
-    gg.fillText("NO PLAYER START PLACED", 320, 190);
-    gg.fillStyle="#8a7f70"; gg.font="14px Courier New";
-    gg.fillText("Go to the Editor and place a Player Start (P).", 320, 220);
-    return;
-  }
-  startGame(p);
+function noPlayerScreen(msg){
+  game.on=false; if(document.pointerLockElement===gc) document.exitPointerLock();
+  gg.fillStyle="#000"; gg.fillRect(0,0,640,400);
+  gg.fillStyle="#c23b22"; gg.font="bold 20px Courier New"; gg.textAlign="center";
+  gg.fillText("NO PLAYER START", 320, 185);
+  gg.fillStyle="#8a7f70"; gg.font="14px Courier New";
+  gg.fillText(msg, 320, 214);
 }
+function ensureLoop(){ if(!game.on){ game.on=true; last=performance.now(); requestAnimationFrame(loop); } }
 
-function startGame(p){
-  const ST = game.ST = level.stats;
-  game.grid = level.grid.slice();
+/* build the live game state from a level object */
+function startLevel(lv, mode){
+  const p = lv.ents.find(e=>e.t==="player");
+  if(!p){ noPlayerScreen("Place a Player Start (P) in "+(lv.name||"this level")+"."); return false; }
+  const ST = game.ST = lv.stats;
+  game.mode = mode; game.screen = "play";
+  game.grid = lv.grid.slice(); game.levelName = lv.name;
   game.px=p.x+.5; game.py=p.y+.5; game.ang=0;
   game.hp=ST.playerHP; game.bullets=Math.round(ST.startBullets); game.shells=Math.round(ST.startShells); game.heavy=Math.round(ST.startHeavy);
   game.cur="pistol"; game.weapons={pistol:true, shotgun:false, chaingun:false};
   game.kills=0;
-  game.over=false; game.won=false; game.msg="RIP AND TEAR"; game.msgT=2.5;
+  game.over=false; game.won=false; game.msg="RIP AND TEAR"; game.msgT=2.2;
   game.dmgFlash=0; game.pickFlash=0; game.muzzle=0; game.cool=0; game.t=0; game.fireHeld=false;
   game.enemies=[]; game.items=[]; game.projs=[]; game.barrels=[]; game.hazards=[]; game.fx=[]; game.tracers=[];
-  for(const e of level.ents){
+  for(const e of lv.ents){
     const x=e.x+.5, y=e.y+.5;
     if(e.t==="grunt")       game.enemies.push({k:"grunt",  x,y, hp:ST.gruntHP,  alert:false, cd:0, pain:0, dead:false, rad:.38});
     else if(e.t==="imp")    game.enemies.push({k:"imp",    x,y, hp:ST.impHP,    alert:false, cd:0, pain:0, dead:false, rad:.38});
@@ -904,8 +1335,16 @@ function startGame(p){
       game.items.push({k:e.t, x,y, got:false});
   }
   game.totalKills=game.enemies.length;
-  game.fogRGB=hex2rgb(level.fog); game.fogDist=level.fogDist;
-  const C=hex2rgb(level.ceil), F=hex2rgb(level.floor), FG=game.fogRGB;
+  game.curLevel = lv;
+  buildRowCol(lv);
+  startMusic(lv);
+  ensureLoop();
+  return true;
+}
+/* fog gradient for ceiling/floor rows — depends on render height, so rebuilt on resolution change */
+function buildRowCol(lv){
+  game.fogRGB=hex2rgb(lv.fog); game.fogDist=lv.fogDist;
+  const C=hex2rgb(lv.ceil), F=hex2rgb(lv.floor), FG=game.fogRGB;
   game.rowCol=new Array(RH);
   for(let y=0;y<RH;y++){
     const src = y<HALF ? C : F;
@@ -913,19 +1352,205 @@ function startGame(p){
     const m = .25 + .75*t;
     game.rowCol[y]=[src[0]*m+FG[0]*(1-m), src[1]*m+FG[1]*(1-m), src[2]*m+FG[2]*(1-m)];
   }
-  if(!game.on){ game.on=true; last=performance.now(); requestAnimationFrame(loop); }
 }
-function stopGame(){ game.on=false; if(document.pointerLockElement===gc) document.exitPointerLock(); }
+/* change the internal render resolution and reallocate buffers */
+function setResolution(key){
+  const r=RES[key]||RES.med; RW=r[0]; RH=r[1]; HALF=RH>>1;
+  buf.width=RW; buf.height=RH;
+  frame=bg.createImageData(RW,RH);
+  zbuf=new Float32Array(RW);
+  SETT.res=key;
+  if(game.curLevel) buildRowCol(game.curLevel);
+}
+
+/* playtest the level currently open in the editor */
+function tryStart(){ if(SETT.res!==curRes()) setResolution(SETT.res); startLevel(level, "test"); }
+
+/* full-game flow */
+function startCampaign(){
+  if(SETT.res!==curRes()) setResolution(SETT.res);
+  stopMusic();
+  game.mode="campaign"; game.seq=project.levels; game.levelIdx=0;
+  game.screen="menu"; game.menuWarn=""; game.menuHover=-1; ensureLoop();
+}
+function curRes(){ return (RW===256?"low":RW===480?"high":RW===640?"ultra":"med"); }
+function gotoLevel(i){
+  if(i<0||i>=game.seq.length){ game.screen="menu"; return; }
+  game.levelIdx=i;
+  if(!startLevel(game.seq[i], "campaign")){ game.screen="menu"; game.menuWarn="Level "+(i+1)+" has no Player Start."; ensureLoop(); }
+}
+function restartCurrent(){ if(game.mode==="campaign") gotoLevel(game.levelIdx); else tryStart(); }
+
+function stopGame(){ game.on=false; game.screen=null; stopMusic(); if(document.pointerLockElement===gc) document.exitPointerLock(); }
+
+/* map a mouse event to 640x400 canvas space */
+function canvasPt(e){
+  const r=gc.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*(640/r.width), y:(e.clientY-r.top)*(400/r.height) };
+}
+
+/* menu / settings / intermission / victory / death screens (campaign mode) */
+function drawScreen(){
+  gg.imageSmoothingEnabled=false;
+  const tc=project.textColor||"#d9cfc0";
+  const isEnd = game.screen==="won";
+  const bg = isEnd ? (project.endBg||"#0c0f14") : (project.menuBg||"#140f0c");
+  const ac = isEnd ? (project.endFg||"#7fd4ff") : (project.menuFg||"#ff5a2a");
+  gg.fillStyle=bg; gg.fillRect(0,0,640,400);
+  gg.fillStyle="rgba(0,0,0,.35)"; gg.fillRect(0,0,640,50); gg.fillRect(0,350,640,50);
+  gg.textAlign="center"; gg.textBaseline="alphabetic";
+
+  if(game.screen==="menu"){
+    game.menuRects=[]; game.menuBtns=[];
+    gg.fillStyle=ac; gg.font=FT(44,true);
+    gg.fillText((project.title||"DOOMFORGE").toUpperCase().slice(0,20), 320, 88);
+    gg.fillStyle=tc; gg.font=FT(14);
+    gg.fillText((project.subtitle||"").slice(0,42), 320, 112);
+    gg.fillStyle="#6f665a"; gg.font=FT(11);
+    gg.fillText("SELECT A LEVEL", 320, 144);
+    const n=game.seq.length, startY=158, rowH=Math.min(28,(286-startY)/Math.max(1,n));
+    game.seq.forEach((lv,i)=>{
+      const y=startY+i*rowH, rw=380, rx=320-rw/2, rh=rowH-6, hov=game.menuHover===i;
+      gg.fillStyle= hov ? "rgba(255,90,42,.22)" : "rgba(255,255,255,.04)"; gg.fillRect(rx,y,rw,rh);
+      gg.strokeStyle= hov ? ac : "#3a322a"; gg.lineWidth=1; gg.strokeRect(rx+.5,y+.5,rw-1,rh-1);
+      gg.fillStyle= hov ? "#ffd9a8" : tc; gg.font=FT(14,true); gg.textAlign="left";
+      gg.fillText((i+1)+".  "+(lv.name||"Untitled").slice(0,30), rx+14, y+rh/2+5);
+      gg.textAlign="center";
+      game.menuRects.push({x:rx,y,w:rw,h:rh,i});
+    });
+    // SETTINGS button
+    const by=298, bw=150, bx=320-bw/2, bh=26, sh=game.menuHover==="set";
+    gg.fillStyle= sh?"rgba(255,90,42,.25)":"rgba(255,255,255,.05)"; gg.fillRect(bx,by,bw,bh);
+    gg.strokeStyle= sh?ac:"#3a322a"; gg.strokeRect(bx+.5,by+.5,bw-1,bh-1);
+    gg.fillStyle= sh?"#ffd9a8":tc; gg.font=FT(13,true); gg.fillText("\u2699  SETTINGS", 320, by+bh/2+5);
+    game.menuBtns.push({x:bx,y:by,w:bw,h:bh,act:"settings"});
+    gg.fillStyle="#6f665a"; gg.font=FT(11);
+    gg.fillText("click a level to begin  ·  WASD move  ·  mouse / \u2190\u2192 turn  ·  1 2 3 weapons", 320, 338);
+    if(game.menuWarn){ gg.fillStyle="#c23b22"; gg.font=FT(12,true); gg.fillText(game.menuWarn, 320, 352); }
+  } else if(game.screen==="settings"){
+    drawSettings(ac,tc);
+  } else if(game.screen==="inter"){
+    gg.fillStyle=ac; gg.font=FT(34,true); gg.fillText("LEVEL COMPLETE", 320, 150);
+    gg.fillStyle=tc; gg.font=FT(15);
+    gg.fillText("Kills "+game.kills+"/"+game.totalKills+"    Health "+game.hp, 320, 184);
+    const nxt=game.seq[game.levelIdx+1];
+    gg.fillStyle="#ffd9a8"; gg.font=FT(16,true);
+    gg.fillText("NEXT:  "+(((nxt&&nxt.name)||"")).toUpperCase().slice(0,26), 320, 224);
+    gg.fillStyle="#6f665a"; gg.font=FT(12);
+    gg.fillText("click or press SPACE to continue", 320, 262);
+  } else if(game.screen==="won"){
+    gg.fillStyle=ac; gg.font=FT(42,true);
+    gg.fillText((project.endTitle||"YOU WON").toUpperCase().slice(0,20), 320, 150);
+    gg.fillStyle=tc; gg.font=FT(15);
+    wrapText((project.endText||"You conquered every level."), 320, 190, 520, 22);
+    gg.fillStyle="#6f665a"; gg.font=FT(12);
+    gg.fillText("click for the menu", 320, 300);
+  } else if(game.screen==="dead"){
+    gg.fillStyle="#c23b22"; gg.font=FT(40,true); gg.fillText("YOU DIED", 320, 148);
+    gg.fillStyle=tc; gg.font=FT(14);
+    gg.fillText("Level "+(game.levelIdx+1)+":  "+((game.levelName||"").toUpperCase()).slice(0,24), 320, 184);
+    gg.fillStyle="#6f665a"; gg.font=FT(12);
+    gg.fillText("click to retry   ·   Q to quit to menu", 320, 226);
+  }
+}
+function wrapText(txt,cx,y,maxW,lh){
+  const words=String(txt).split(/\s+/); let line="", yy=y;
+  for(const w of words){
+    const test=line?line+" "+w:w;
+    if(gg.measureText(test).width>maxW && line){ gg.fillText(line,cx,yy); line=w; yy+=lh; }
+    else line=test;
+  }
+  if(line) gg.fillText(line,cx,yy);
+}
+
+/* the in-game SETTINGS screen (audio, resolution, sensitivity) */
+const SETTINGS_ROWS = [
+  {k:"master", label:"Master volume",  type:"vol"},
+  {k:"gun",    label:"Gun volume",     type:"vol"},
+  {k:"monster",label:"Monster volume", type:"vol"},
+  {k:"trap",   label:"Trap volume",    type:"vol"},
+  {k:"music",  label:"Music volume",   type:"vol"},
+  {k:"sens",   label:"Mouse sensitivity", type:"sens"},
+  {k:"res",    label:"Resolution",     type:"res"}
+];
+const RES_ORDER=["low","med","high","ultra"];
+const RES_LABEL={low:"LOW  256×160", med:"MED  320×200", high:"HIGH  480×300", ultra:"ULTRA 640×400"};
+function drawSettings(ac,tc){
+  gg.textAlign="center"; gg.fillStyle=ac; gg.font=FT(26,true);
+  gg.fillText("SETTINGS", 320, 62);
+  game.setRects=[];
+  const x0=140, w=360, startY=94, rowH=31;
+  SETTINGS_ROWS.forEach((r,i)=>{
+    const y=startY+i*rowH;
+    gg.textAlign="left"; gg.fillStyle=tc; gg.font=FT(13);
+    gg.fillText(r.label, x0, y-6);
+    if(r.type==="vol"||r.type==="sens"){
+      const max = r.type==="sens"?2:1;
+      const val = SETT[r.k]/max;
+      const tx=x0, ty=y, tw=w, th=10;
+      gg.fillStyle="#241f1a"; gg.fillRect(tx,ty,tw,th);
+      gg.fillStyle=ac; gg.fillRect(tx,ty,tw*Math.max(0,Math.min(1,val)),th);
+      gg.strokeStyle="#3a322a"; gg.strokeRect(tx+.5,ty+.5,tw-1,th-1);
+      gg.textAlign="right"; gg.fillStyle="#8a7f70"; gg.font=FT(11);
+      gg.fillText(r.type==="sens"?(SETT[r.k]).toFixed(2)+"x":Math.round(SETT[r.k]*100)+"%", x0+w, y-6);
+      game.setRects.push({x:tx,y:ty-6,w:tw,h:th+12,type:r.type,k:r.k,max});
+    } else if(r.type==="res"){
+      const bw=140, bx=x0+w-bw, by=y-14, bh=22;
+      gg.fillStyle="rgba(255,255,255,.05)"; gg.fillRect(bx,by,bw,bh);
+      gg.strokeStyle="#3a322a"; gg.strokeRect(bx+.5,by+.5,bw-1,bh-1);
+      gg.textAlign="center"; gg.fillStyle=ac; gg.font=FT(11,true);
+      gg.fillText(RES_LABEL[SETT.res]||SETT.res, bx+bw/2, by+bh/2+4);
+      game.setRects.push({x:bx,y:by,w:bw,h:bh,type:"res"});
+    }
+  });
+  // BACK button
+  const bx=320-70, by=startY+SETTINGS_ROWS.length*rowH+8, bw=140, bh=26, hov=game.setHover==="back";
+  gg.fillStyle= hov?"rgba(255,90,42,.25)":"rgba(255,255,255,.05)"; gg.fillRect(bx,by,bw,bh);
+  gg.strokeStyle= hov?ac:"#3a322a"; gg.strokeRect(bx+.5,by+.5,bw-1,bh-1);
+  gg.textAlign="center"; gg.fillStyle= hov?"#ffd9a8":tc; gg.font=FT(13,true);
+  gg.fillText("\u25C0 BACK", 320, by+bh/2+5);
+  game.setRects.push({x:bx,y:by,w:bw,h:bh,type:"back"});
+  gg.fillStyle="#6f665a"; gg.font=FT(10);
+  gg.textAlign="center";
+  gg.fillText("click a bar to set the level  ·  volumes apply instantly", 320, by+bh+22);
+}
+function handleSettingsClick(p){
+  for(const r of (game.setRects||[])){
+    if(p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h){
+      if(r.type==="vol"||r.type==="sens"){
+        const v=Math.max(0,Math.min(1,(p.x-r.x)/r.w))*r.max;
+        SETT[r.k]=v; project.settings[r.k]=v; applyVolumes();
+        if(r.k!=="sens") audio();   // wake audio so the change is audible
+      } else if(r.type==="res"){
+        const i=RES_ORDER.indexOf(SETT.res); const nk=RES_ORDER[(i+1)%RES_ORDER.length];
+        setResolution(nk); project.settings.res=nk;
+      } else if(r.type==="back"){
+        game.screen="menu";
+      }
+      return;
+    }
+  }
+}
 
 /* ---------- input ---------- */
 window.addEventListener("keydown", e=>{
   keys[e.code]=true;
   if(!game.on) return;
-  if(e.code==="Space"){ e.preventDefault(); game.fireHeld=true; if(!WEAP[game.cur].auto) fire(); }
-  if(e.code==="KeyR") tryStart();
-  if(e.code==="Digit1") switchWeap("pistol");
-  if(e.code==="Digit2") switchWeap("shotgun");
-  if(e.code==="Digit3") switchWeap("chaingun");
+  const sc=game.screen;
+  if(sc==="play"){
+    if(e.code==="Space"){ e.preventDefault(); game.fireHeld=true; if(!WEAP[game.cur].auto) fire(); }
+    if(e.code==="KeyR") restartCurrent();
+    if(e.code==="Digit1") switchWeap("pistol");
+    if(e.code==="Digit2") switchWeap("shotgun");
+    if(e.code==="Digit3") switchWeap("chaingun");
+  } else if(sc==="inter"){
+    if(e.code==="Space"||e.code==="Enter"){ e.preventDefault(); gotoLevel(game.levelIdx+1); }
+  } else if(sc==="dead"){
+    if(e.code==="KeyQ") startCampaign();
+    else if(e.code==="Space"||e.code==="Enter") restartCurrent();
+  } else if(sc==="won"){
+    if(e.code==="Space"||e.code==="Enter") startCampaign();
+  }
 });
 window.addEventListener("keyup", e=>{
   keys[e.code]=false;
@@ -933,8 +1558,22 @@ window.addEventListener("keyup", e=>{
 });
 gc.addEventListener("mousedown", e=>{
   e.preventDefault();
-  if(!game.on){ tryStart(); return; }
-  if(game.over){ tryStart(); return; }
+  if(!game.on) return;
+  const sc=game.screen;
+  if(sc==="menu"){
+    const p=canvasPt(e);
+    const btn=(game.menuBtns||[]).find(m=>p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h);
+    if(btn && btn.act==="settings"){ game.screen="settings"; game.setHover=null; audio(); return; }
+    const hit=(game.menuRects||[]).find(m=>p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h);
+    if(hit) gotoLevel(hit.i);
+    return;
+  }
+  if(sc==="settings"){ handleSettingsClick(canvasPt(e)); return; }
+  if(sc==="inter"){ gotoLevel(game.levelIdx+1); return; }
+  if(sc==="won"){ startCampaign(); return; }
+  if(sc==="dead"){ restartCurrent(); return; }
+  // playing
+  if(game.over){ restartCurrent(); return; }   // test-mode level complete → restart
   if(!locked) gc.requestPointerLock();
   game.fireHeld=true;
   if(!WEAP[game.cur].auto) fire();
@@ -943,7 +1582,24 @@ window.addEventListener("mouseup", ()=>game.fireHeld=false);
 gc.addEventListener("contextmenu", e=>e.preventDefault());
 document.addEventListener("pointerlockchange", ()=>{ locked = document.pointerLockElement===gc; });
 document.addEventListener("mousemove", e=>{
-  if(locked && game.on && !game.over) game.ang += e.movementX*0.0022;
+  if(!game.on) return;
+  if(game.screen==="play"){ if(locked && !game.over) game.ang += e.movementX*0.0022*(SETT.sens||1); }
+  else if(game.screen==="menu"){
+    const p=canvasPt(e);
+    let h=-1;
+    const lvl=(game.menuRects||[]).find(m=>p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h);
+    if(lvl) h=lvl.i;
+    else if((game.menuBtns||[]).some(m=>p.x>=m.x&&p.x<=m.x+m.w&&p.y>=m.y&&p.y<=m.y+m.h)) h="set";
+    game.menuHover = h;
+  } else if(game.screen==="settings"){
+    const p=canvasPt(e);
+    const back=(game.setRects||[]).find(r=>r.type==="back"&&p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h);
+    game.setHover = back?"back":null;
+  }
+});
+/* Esc from settings returns to menu */
+window.addEventListener("keydown", e=>{
+  if(game.on && game.screen==="settings" && e.code==="Escape") game.screen="menu";
 });
 
 function switchWeap(w){
@@ -1041,14 +1697,17 @@ function checkWin(){
 }
 function winLevel(){
   if(game.over) return;
-  game.over=true; game.won=true; S.win();
+  game.over=true; game.won=true; stopMusic(); S.win();
+  if(game.mode==="campaign"){
+    game.screen = (game.levelIdx < game.seq.length-1) ? "inter" : "won";
+  }
 }
 function hurtPlayer(d, why){
   if(game.over) return;
   game.hp-=d; game.dmgFlash=Math.min(1, game.dmgFlash+.55);
   S.hurt();
   if(why) setMsg(why);
-  if(game.hp<=0){ game.hp=0; game.over=true; game.won=false; S.dead(); }
+  if(game.hp<=0){ game.hp=0; game.over=true; game.won=false; stopMusic(); S.dead(); if(game.mode==="campaign") game.screen="dead"; }
 }
 function setMsg(m){ game.msg=m; game.msgT=2; }
 function dist2(x,y){ return x*x+y*y; }
@@ -1105,7 +1764,9 @@ function update(dt){
   if(l>0){
     movePlayer(fx/l*sp, fy/l*sp, .22);
     game.bob += dt*9;
-  }
+    game.stepT = (game.stepT||0) - dt;
+    if(game.stepT<=0){ game.stepT=0.42; S.step(); }
+  } else { game.stepT=0.12; }   // small delay before the next footstep when you start again
 
   // spikes
   for(const h of game.hazards){
@@ -1161,7 +1822,7 @@ function update(dt){
         const s=ST.gruntSpd*dt;
         moveBody(en, rx/d*s, ry/d*s, .3);
       } else if(en.cd<=0 && canSee){
-        en.cd=.9; hurtPlayer(Math.round(ST.gruntDmg), "GRUNT CLAWS YOU");
+        en.cd=.9; S.claw(); hurtPlayer(Math.round(ST.gruntDmg), "GRUNT CLAWS YOU");
       }
     } else if(en.k==="imp"){
       if(d>5.5 || !canSee){
@@ -1354,7 +2015,7 @@ function render(){
   drawMinimap();
   drawHUD();
 
-  if(game.over){
+  if(game.over && game.mode!=="campaign"){
     gg.fillStyle="rgba(0,0,0,.55)"; gg.fillRect(0,0,640,400);
     gg.textAlign="center";
     gg.font="bold 34px Courier New";
@@ -1469,39 +2130,45 @@ function drawMinimap(){
 }
 
 function drawHUD(){
-  if(!game.over){
+  if(game.screen==="play" && !game.over){
     gg.strokeStyle="rgba(255,220,150,.8)";
     gg.beginPath();
     gg.moveTo(316,200); gg.lineTo(324,200);
     gg.moveTo(320,196); gg.lineTo(320,204);
     gg.stroke();
   }
-  gg.fillStyle="rgba(14,12,10,.92)"; gg.fillRect(0,368,640,32);
-  gg.fillStyle="#3a322a"; gg.fillRect(0,366,640,2);
+  // ---- bottom bar: two rows so nothing ever collides ----
+  gg.fillStyle="rgba(14,12,10,.95)"; gg.fillRect(0,356,640,44);
+  gg.fillStyle="#3a322a"; gg.fillRect(0,354,640,2);
+  gg.fillStyle="#241f1a"; gg.fillRect(0,377,640,1);   // divider between rows
   gg.textBaseline="middle";
-  const w=WEAP[game.cur], pool=game[w.ammo];
-  const maxHP=game.ST.playerHP;
-  gg.textAlign="left"; gg.font="bold 17px Courier New";
-  gg.fillStyle = game.hp>maxHP*.5 ? "#7bbf6a" : game.hp>maxHP*.25 ? "#ffb347" : "#c23b22";
-  gg.fillText(`HP ${game.hp}`, 14, 384);
-  gg.fillStyle="#d9cfc0";
-  gg.fillText(w.n, 120, 384);
-  gg.fillStyle = pool>0 ? "#d4b12a" : "#c23b22";
-  gg.fillText(`${pool}`, 232, 384);
-  gg.font="11px Courier New"; gg.fillStyle="#8a7f70";
-  gg.fillText(`BUL ${game.bullets} · SHL ${game.shells} · HVY ${game.heavy}`, 280, 384);
-  gg.font="bold 17px Courier New"; gg.fillStyle="#d9cfc0";
-  gg.fillText(`KILLS ${game.kills}/${game.totalKills}`, 420, 384);
-  gg.textAlign="right"; gg.font="11px Courier New"; gg.fillStyle="#8a7f70";
-  gg.fillText(level.name.toUpperCase().slice(0,18), 630, 384);
-  // owned weapon pips
-  gg.textAlign="left"; gg.font="10px Courier New";
+  const w=WEAP[game.cur], pool=game[w.ammo], maxHP=game.ST.playerHP;
+
+  // ROW 1 (y=368): weapon pips + ammo pools (left) | level name (right)
+  const tc=project.textColor||"#d9cfc0";
+  gg.textAlign="left"; gg.font=FT(10);
   ["pistol","shotgun","chaingun"].forEach((k,i)=>{
     gg.fillStyle = game.cur===k ? "#ffb347" : game.weapons[k] ? "#8a7f70" : "#3a322a";
-    gg.fillText(String(i+1), 120+i*12, 372);
+    gg.fillText(String(i+1), 14+i*10, 368);
   });
-  if(game.msgT>0 && !game.over){
-    gg.textAlign="center"; gg.font="bold 15px Courier New";
+  gg.fillStyle="#8a7f70";
+  gg.fillText(`BUL ${game.bullets}   SHL ${game.shells}   HVY ${game.heavy}`, 50, 368);
+  gg.textAlign="right"; gg.fillStyle="#6f665a";
+  gg.fillText((game.levelName||"").toUpperCase().slice(0,20), 628, 368);
+
+  // ROW 2 (y=389): HP | weapon + current ammo | KILLS
+  gg.textAlign="left"; gg.font=FT(16,true);
+  gg.fillStyle = game.hp>maxHP*.5 ? "#7bbf6a" : game.hp>maxHP*.25 ? "#ffb347" : "#c23b22";
+  gg.fillText(`HP ${game.hp}`, 14, 389);
+  gg.fillStyle=tc; gg.font=FT(15,true);
+  gg.fillText(w.n, 120, 389);
+  gg.fillStyle = pool>0 ? "#d4b12a" : "#c23b22";
+  gg.fillText(String(pool), 250, 389);
+  gg.textAlign="right"; gg.fillStyle=tc; gg.font=FT(15,true);
+  gg.fillText(`KILLS ${game.kills}/${game.totalKills}`, 628, 389);
+
+  if(game.msgT>0 && game.screen==="play" && !game.over){
+    gg.textAlign="center"; gg.font=FT(15,true);
     gg.fillStyle=`rgba(255,214,140,${Math.min(1,game.msgT)})`;
     gg.fillText(game.msg, 320, 60);
   }
@@ -1512,13 +2179,34 @@ let last=0;
 function loop(t){
   if(!game.on) return;
   const dt=Math.min(.05,(t-last)/1000); last=t;
-  update(dt);
-  render();
+  if(game.screen==="play"){ update(dt); render(); }
+  else drawScreen();
   requestAnimationFrame(loop);
 }
 
+/* ---------- published (built) game: no editor, straight to the menu ---------- */
+function runPublished(data){
+  try{ loadProjectData(data); }catch(e){}
+  // adopt the game's saved settings and resolution
+  Object.assign(SETT, project.settings||{});
+  setResolution(SETT.res);
+  document.body.classList.add("player-mode");
+  const nav=document.querySelector("header nav"); if(nav) nav.style.display="none";
+  const tag=document.querySelector(".tag"); if(tag) tag.textContent="";
+  $("editmain").classList.remove("on"); $("helpmain").classList.remove("on");
+  $("playmain").classList.add("on");
+  const back=$("btnBack"); if(back) back.style.display="none";   // nowhere to go back to
+  document.title = project.title || "DOOMFORGE";
+  startCampaign();
+}
+
 /* ---------- boot ---------- */
-$("btnSample").click();
+if(window.EMBEDDED_GAME){
+  runPublished(window.EMBEDDED_GAME);
+} else {
+  loadSampleGame();     // editor opens with the sample game loaded
+}
+
 </script>
 </body>
 </html>
